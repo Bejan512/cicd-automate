@@ -96,14 +96,17 @@ jobs:
           cache-dependency-path: ${{ inputs.working-directory == '.' && '' || format('{0}/{1}', inputs.working-directory, inputs.package-manager == 'pnpm' && 'pnpm-lock.yaml' || (inputs.package-manager == 'yarn' && 'yarn.lock' || 'package-lock.json')) }}
 
       - name: Install dependencies
+        env:
+          INSTALL_CMD: ${{ inputs.install-command }}
+          PM: ${{ inputs.package-manager }}
         run: |
-          if [ -n "${{ inputs.install-command }}" ]; then
-            ${{ inputs.install-command }}
-          elif [ "${{ inputs.package-manager }}" = "pnpm" ]; then
+          if [ -n "$INSTALL_CMD" ]; then
+            bash -euo pipefail -c "$INSTALL_CMD"
+          elif [ "$PM" = "pnpm" ]; then
             pnpm install --frozen-lockfile
-          elif [ "${{ inputs.package-manager }}" = "yarn" ]; then
+          elif [ "$PM" = "yarn" ]; then
             yarn install --frozen-lockfile
-          elif [ "${{ inputs.package-manager }}" = "bun" ]; then
+          elif [ "$PM" = "bun" ]; then
             bun install --frozen-lockfile
           else
             npm ci
@@ -111,40 +114,52 @@ jobs:
 
       - name: Lint
         if: inputs.run-lint
+        env:
+          LINT_CMD: ${{ inputs.lint-command }}
+          PM: ${{ inputs.package-manager }}
         run: |
-          if [ -n "${{ inputs.lint-command }}" ]; then
-            ${{ inputs.lint-command }}
+          if [ -n "$LINT_CMD" ]; then
+            bash -euo pipefail -c "$LINT_CMD"
           else
-            ${{ inputs.package-manager }} run lint
+            "$PM" run lint
           fi
 
       - name: Typecheck
         if: inputs.run-typecheck
+        env:
+          TYPECHECK_CMD: ${{ inputs.typecheck-command }}
+          PM: ${{ inputs.package-manager }}
         run: |
-          if [ -n "${{ inputs.typecheck-command }}" ]; then
-            ${{ inputs.typecheck-command }}
+          if [ -n "$TYPECHECK_CMD" ]; then
+            bash -euo pipefail -c "$TYPECHECK_CMD"
           else
-            ${{ inputs.package-manager }} run typecheck
+            "$PM" run typecheck
           fi
 
       - name: Test
         if: inputs.run-test
+        env:
+          TEST_CMD: ${{ inputs.test-command }}
+          PM: ${{ inputs.package-manager }}
         run: |
-          if [ -n "${{ inputs.test-command }}" ]; then
-            ${{ inputs.test-command }}
-          elif [ "${{ inputs.package-manager }}" = "bun" ]; then
+          if [ -n "$TEST_CMD" ]; then
+            bash -euo pipefail -c "$TEST_CMD"
+          elif [ "$PM" = "bun" ]; then
             bun test
           else
-            ${{ inputs.package-manager }} test
+            "$PM" test
           fi
 
       - name: Build
         if: inputs.run-build
+        env:
+          BUILD_CMD: ${{ inputs.build-command }}
+          PM: ${{ inputs.package-manager }}
         run: |
-          if [ -n "${{ inputs.build-command }}" ]; then
-            ${{ inputs.build-command }}
+          if [ -n "$BUILD_CMD" ]; then
+            bash -euo pipefail -c "$BUILD_CMD"
           else
-            ${{ inputs.package-manager }} run build
+            "$PM" run build
           fi
 
       - name: Upload coverage artifact

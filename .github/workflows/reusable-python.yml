@@ -108,46 +108,58 @@ jobs:
 
       - name: Lint
         if: inputs.run-lint
+        env:
+          CMD: ${{ inputs.lint-command }}
+          PM: ${{ inputs.package-manager }}
         run: |
-          if [ "${{ inputs.package-manager }}" = "uv" ]; then
-            uv run ${{ inputs.lint-command }}
-          elif [ "${{ inputs.package-manager }}" = "poetry" ]; then
-            poetry run ${{ inputs.lint-command }}
+          if [ "$PM" = "uv" ]; then
+            uv run bash -euo pipefail -c "$CMD"
+          elif [ "$PM" = "poetry" ]; then
+            poetry run bash -euo pipefail -c "$CMD"
           else
-            ${{ inputs.lint-command }}
+            bash -euo pipefail -c "$CMD"
           fi
 
       - name: Format check
         if: inputs.run-format-check
+        env:
+          CMD: ${{ inputs.format-command }}
+          PM: ${{ inputs.package-manager }}
         run: |
-          if [ "${{ inputs.package-manager }}" = "uv" ]; then
-            uv run ${{ inputs.format-command }}
-          elif [ "${{ inputs.package-manager }}" = "poetry" ]; then
-            poetry run ${{ inputs.format-command }}
+          if [ "$PM" = "uv" ]; then
+            uv run bash -euo pipefail -c "$CMD"
+          elif [ "$PM" = "poetry" ]; then
+            poetry run bash -euo pipefail -c "$CMD"
           else
-            ${{ inputs.format-command }}
+            bash -euo pipefail -c "$CMD"
           fi
 
       - name: Typecheck
         if: inputs.run-typecheck
+        env:
+          CMD: ${{ inputs.typecheck-command }}
+          PM: ${{ inputs.package-manager }}
         run: |
-          if [ "${{ inputs.package-manager }}" = "uv" ]; then
-            uv run ${{ inputs.typecheck-command }}
-          elif [ "${{ inputs.package-manager }}" = "poetry" ]; then
-            poetry run ${{ inputs.typecheck-command }}
+          if [ "$PM" = "uv" ]; then
+            uv run bash -euo pipefail -c "$CMD"
+          elif [ "$PM" = "poetry" ]; then
+            poetry run bash -euo pipefail -c "$CMD"
           else
-            ${{ inputs.typecheck-command }}
+            bash -euo pipefail -c "$CMD"
           fi
 
       - name: Test
         if: inputs.run-test
+        env:
+          CMD: ${{ inputs.test-command }}
+          PM: ${{ inputs.package-manager }}
         run: |
-          if [ "${{ inputs.package-manager }}" = "uv" ]; then
-            uv run ${{ inputs.test-command }}
-          elif [ "${{ inputs.package-manager }}" = "poetry" ]; then
-            poetry run ${{ inputs.test-command }}
+          if [ "$PM" = "uv" ]; then
+            uv run bash -euo pipefail -c "$CMD"
+          elif [ "$PM" = "poetry" ]; then
+            poetry run bash -euo pipefail -c "$CMD"
           else
-            ${{ inputs.test-command }}
+            bash -euo pipefail -c "$CMD"
           fi
 
       - name: Upload coverage artifact
