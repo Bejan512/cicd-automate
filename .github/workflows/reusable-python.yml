@@ -1,0 +1,161 @@
+name: Reusable Python CI
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory containing Python project files"
+        type: string
+        default: "."
+      package-manager:
+        description: "Package manager (uv, poetry, pip)"
+        type: string
+        default: "uv"
+      python-version:
+        description: "Python version (ignored if python-version-file is set)"
+        type: string
+        default: "3.12"
+      python-version-file:
+        description: "Path to .python-version file"
+        type: string
+        default: ""
+      run-lint:
+        description: "Run linter (e.g. ruff check)"
+        type: boolean
+        default: true
+      lint-command:
+        description: "Custom lint command"
+        type: string
+        default: "ruff check ."
+      run-format-check:
+        description: "Run formatter check (e.g. ruff format --check)"
+        type: boolean
+        default: false
+      format-command:
+        description: "Custom format check command"
+        type: string
+        default: "ruff format --check ."
+      run-typecheck:
+        description: "Run static type checker (e.g. mypy)"
+        type: boolean
+        default: false
+      typecheck-command:
+        description: "Custom typecheck command"
+        type: string
+        default: "mypy ."
+      run-test:
+        description: "Run test suite"
+        type: boolean
+        default: true
+      test-command:
+        description: "Custom test command"
+        type: string
+        default: "pytest"
+      upload-coverage:
+        description: "Upload coverage report artifact"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Python CI (${{ inputs.working-directory }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup uv
+        if: inputs.package-manager == 'uv'
+        uses: astral-sh/setup-uv@v5
+        with:
+          enable-cache: true
+
+      - name: Setup Python
+        if: inputs.package-manager != 'uv'
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ inputs.python-version-file == '' && inputs.python-version || '' }}
+          python-version-file: ${{ inputs.python-version-file }}
+          cache: ${{ inputs.package-manager == 'pip' && 'pip' || '' }}
+
+      - name: Install dependencies (uv)
+        if: inputs.package-manager == 'uv'
+        run: |
+          if [ -n "${{ inputs.python-version }}" ] && [ -z "${{ inputs.python-version-file }}" ]; then
+            uv python install "${{ inputs.python-version }}"
+          fi
+          uv sync --all-extras --dev
+
+      - name: Install dependencies (poetry)
+        if: inputs.package-manager == 'poetry'
+        run: |
+          pip install --upgrade poetry
+          poetry install --no-interaction --no-ansi
+
+      - name: Install dependencies (pip)
+        if: inputs.package-manager == 'pip'
+        run: |
+          python -m pip install --upgrade pip
+          if [ -f requirements.txt ]; then pip install -r requirements.txt; fi
+          if [ -f requirements-dev.txt ]; then pip install -r requirements-dev.txt; fi
+          if [ -f pyproject.toml ]; then pip install -e ".[dev]" 2>/dev/null || pip install -e .; fi
+
+      - name: Lint
+        if: inputs.run-lint
+        run: |
+          if [ "${{ inputs.package-manager }}" = "uv" ]; then
+            uv run ${{ inputs.lint-command }}
+          elif [ "${{ inputs.package-manager }}" = "poetry" ]; then
+            poetry run ${{ inputs.lint-command }}
+          else
+            ${{ inputs.lint-command }}
+          fi
+
+      - name: Format check
+        if: inputs.run-format-check
+        run: |
+          if [ "${{ inputs.package-manager }}" = "uv" ]; then
+            uv run ${{ inputs.format-command }}
+          elif [ "${{ inputs.package-manager }}" = "poetry" ]; then
+            poetry run ${{ inputs.format-command }}
+          else
+            ${{ inputs.format-command }}
+          fi
+
+      - name: Typecheck
+        if: inputs.run-typecheck
+        run: |
+          if [ "${{ inputs.package-manager }}" = "uv" ]; then
+            uv run ${{ inputs.typecheck-command }}
+          elif [ "${{ inputs.package-manager }}" = "poetry" ]; then
+            poetry run ${{ inputs.typecheck-command }}
+          else
+            ${{ inputs.typecheck-command }}
+          fi
+
+      - name: Test
+        if: inputs.run-test
+        run: |
+          if [ "${{ inputs.package-manager }}" = "uv" ]; then
+            uv run ${{ inputs.test-command }}
+          elif [ "${{ inputs.package-manager }}" = "poetry" ]; then
+            poetry run ${{ inputs.test-command }}
+          else
+            ${{ inputs.test-command }}
+          fi
+
+      - name: Upload coverage artifact
+        if: inputs.upload-coverage && inputs.run-test
+        uses: actions/upload-artifact@v4
+        with:
+          name: python-coverage
+          path: |
+            ${{ inputs.working-directory }}/coverage.xml
+            ${{ inputs.working-directory }}/htmlcov
+          if-no-files-found: ignore

@@ -1,0 +1,41 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  go:
+    uses: ./.github/workflows/reusable-go.yml
+    with:
+      working-directory: "."
+      go-version-file: "go.mod"
+      run-vet: true
+      run-lint: false
+      run-test: true
+      run-build: true
+      build-command: "go build -o bin/cicd ./cmd/cicd"
+
+  validate-workflows:
+    name: Validate Workflows with cicd doctor
+    needs: go
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: "go.mod"
+
+      - name: Run cicd doctor
+        run: go run ./cmd/cicd doctor --strict .

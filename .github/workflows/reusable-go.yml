@@ -1,0 +1,98 @@
+name: Reusable Go CI
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory containing go.mod"
+        type: string
+        default: "."
+      go-version:
+        description: "Explicit Go version (defaults to reading go-version-file)"
+        type: string
+        default: ""
+      go-version-file:
+        description: "Path to go.mod relative to repository root"
+        type: string
+        default: "go.mod"
+      run-vet:
+        description: "Run go vet"
+        type: boolean
+        default: true
+      run-lint:
+        description: "Run golangci-lint"
+        type: boolean
+        default: true
+      golangci-lint-version:
+        description: "golangci-lint version"
+        type: string
+        default: "v1.64"
+      run-test:
+        description: "Run go test"
+        type: boolean
+        default: true
+      test-flags:
+        description: "Flags passed to go test"
+        type: string
+        default: "-race -coverprofile=coverage.out ./..."
+      run-build:
+        description: "Run go build"
+        type: boolean
+        default: true
+      build-command:
+        description: "Build command"
+        type: string
+        default: "go build ./..."
+      upload-coverage:
+        description: "Upload coverage.out artifact"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Go CI (${{ inputs.working-directory }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: ${{ inputs.go-version }}
+          go-version-file: ${{ inputs.go-version == '' && inputs.go-version-file || '' }}
+          cache: true
+          cache-dependency-path: ${{ inputs.working-directory }}/go.sum
+
+      - name: Vet
+        if: inputs.run-vet
+        run: go vet ./...
+
+      - name: Lint
+        if: inputs.run-lint
+        uses: golangci/golangci-lint-action@v6
+        with:
+          version: ${{ inputs.golangci-lint-version }}
+          working-directory: ${{ inputs.working-directory }}
+
+      - name: Test
+        if: inputs.run-test
+        run: go test ${{ inputs.test-flags }}
+
+      - name: Build
+        if: inputs.run-build
+        run: ${{ inputs.build-command }}
+
+      - name: Upload coverage artifact
+        if: inputs.upload-coverage && inputs.run-test
+        uses: actions/upload-artifact@v4
+        with:
+          name: go-coverage
+          path: ${{ inputs.working-directory }}/coverage.out
+          if-no-files-found: ignore

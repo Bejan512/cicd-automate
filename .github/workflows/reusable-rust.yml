@@ -1,0 +1,76 @@
+name: Reusable Rust CI
+
+on:
+  workflow_call:
+    inputs:
+      working-directory:
+        description: "Directory containing Cargo.toml"
+        type: string
+        default: "."
+      toolchain:
+        description: "Rust toolchain channel"
+        type: string
+        default: "stable"
+      run-fmt:
+        description: "Run cargo fmt --check"
+        type: boolean
+        default: true
+      run-clippy:
+        description: "Run cargo clippy"
+        type: boolean
+        default: true
+      run-test:
+        description: "Run cargo test"
+        type: boolean
+        default: true
+      run-build:
+        description: "Run cargo build"
+        type: boolean
+        default: true
+      extra-args:
+        description: "Extra arguments passed to cargo commands"
+        type: string
+        default: "--all-targets --all-features"
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    name: Rust CI (${{ inputs.working-directory }})
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: ${{ inputs.working-directory }}
+    env:
+      CARGO_TERM_COLOR: always
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Rust toolchain
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: ${{ inputs.toolchain }}
+          components: rustfmt, clippy
+
+      - name: Cache Cargo artifacts
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: ${{ inputs.working-directory }}
+
+      - name: Check formatting
+        if: inputs.run-fmt
+        run: cargo fmt --all -- --check
+
+      - name: Clippy
+        if: inputs.run-clippy
+        run: cargo clippy ${{ inputs.extra-args }} -- -D warnings
+
+      - name: Test
+        if: inputs.run-test
+        run: cargo test ${{ inputs.extra-args }}
+
+      - name: Build
+        if: inputs.run-build
+        run: cargo build --release
