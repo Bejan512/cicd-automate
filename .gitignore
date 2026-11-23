@@ -1,7 +1,7 @@
 # Binaries
 /bin/
 /dist/
-cicd
+/cicd
 *.exe
 *.test
 *.out
