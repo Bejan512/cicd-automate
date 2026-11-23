@@ -71,15 +71,21 @@ func (NodeDetector) Detect(rootDir, relDir string) (*model.StackConfig, bool) {
 		signals = append(signals, "script:type-check")
 	} else if fileExists(filepath.Join(dir, "tsconfig.json")) {
 		stack.RunTypecheck = true
+		execPrefix := "npx"
 		switch pm {
 		case "pnpm":
-			stack.TypecheckCmd = "pnpm exec tsc --noEmit"
+			execPrefix = "pnpm exec"
 		case "yarn":
-			stack.TypecheckCmd = "yarn tsc --noEmit"
+			execPrefix = "yarn"
 		case "bun":
-			stack.TypecheckCmd = "bunx tsc --noEmit"
-		default:
-			stack.TypecheckCmd = "npx tsc --noEmit"
+			execPrefix = "bunx"
+		}
+		if _, isNext := pkg.Dependencies["next"]; isNext {
+			// Next.js 15+/16 generates LayoutProps/PageProps in .next/types via `next typegen`.
+			stack.TypecheckCmd = "(" + execPrefix + " next typegen 2>/dev/null || true) && " + execPrefix + " tsc --noEmit"
+			signals = append(signals, "next")
+		} else {
+			stack.TypecheckCmd = execPrefix + " tsc --noEmit"
 		}
 		signals = append(signals, "tsconfig.json")
 	}

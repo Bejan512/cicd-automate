@@ -50,6 +50,29 @@ func TestDetectNodeProject(t *testing.T) {
 	}
 }
 
+func TestDetectNextJSRunsTypegenBeforeTSC(t *testing.T) {
+	dir := t.TempDir()
+	writeTestFile(t, dir, "package.json", `{
+  "name": "next-app",
+  "dependencies": { "next": "16.4.6", "react": "19.0.0" },
+  "scripts": { "lint": "eslint", "build": "next build" }
+}`)
+	writeTestFile(t, dir, "pnpm-lock.yaml", "lockfileVersion: '9.0'\n")
+	writeTestFile(t, dir, "tsconfig.json", "{}")
+
+	res, err := DetectProject(dir)
+	if err != nil {
+		t.Fatalf("DetectProject error: %v", err)
+	}
+	if len(res.Stacks) != 1 {
+		t.Fatalf("expected 1 stack, got %d", len(res.Stacks))
+	}
+	want := "(pnpm exec next typegen 2>/dev/null || true) && pnpm exec tsc --noEmit"
+	if res.Stacks[0].TypecheckCmd != want {
+		t.Fatalf("TypecheckCmd = %q, want %q", res.Stacks[0].TypecheckCmd, want)
+	}
+}
+
 func TestDetectPythonProject(t *testing.T) {
 	dir := t.TempDir()
 	writeTestFile(t, dir, "pyproject.toml", `
